@@ -53,7 +53,7 @@
 
   /* --- Location carousel --- */
   .carousel-heading { font-size: 15px; font-weight: 700; margin: 24px 0 8px; }
-  .carousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+  .carousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; justify-content: center; }
   .carousel::-webkit-scrollbar { display: none; }
   .loc-card { flex: 0 0 78%; scroll-snap-align: start; background: #2C2C2A; border-radius: 14px; overflow: hidden; border: 1px solid #444; }
   .loc-card-img { width: 100%; height: 100px; object-fit: cover; display: block; background: #1a1a1a; }
@@ -101,19 +101,19 @@
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
-      <div class="step-text">Register below with the exact name you use for parkrun, and your mobile</div>
-    </div>
-    <div class="step">
-      <div class="step-num">2</div>
       <div class="step-text">Run your local parkrun as normal, this Saturday</div>
     </div>
     <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Everyone who finishes is automatically in that parkrun's draw</div>
+    </div>
+    <div class="step">
       <div class="step-num">3</div>
-      <div class="step-text">If your name's on the results, you're automatically in that parkrun's draw</div>
+      <div class="step-text">The wheel spins live after parkrun</div>
     </div>
     <div class="step">
       <div class="step-num">4</div>
-      <div class="step-text">The wheel spins live after parkrun — win and we text you</div>
+      <div class="step-text">Win? Text a photo of your ID within 30 minutes to claim</div>
     </div>
   </div>
 
@@ -121,8 +121,7 @@
   <div class="carousel" id="carousel"></div>
 
   <select id="locationSelect" style="margin-top:20px;"></select>
-  <a class="btn btn-primary" id="registerLink" href="#">Register for this parkrun</a>
-  <a class="btn btn-secondary" id="wheelLink" href="#">Watch this week's wheel</a>
+  <a class="btn btn-primary" id="wheelLink" href="#">Watch this week's wheel</a>
 
 </div>
 
@@ -148,7 +147,6 @@ async function loadLocations() {
 
 function updateLinks() {
   const id = document.getElementById('locationSelect').value;
-  document.getElementById('registerLink').href = 'register.html?location=' + id;
   document.getElementById('wheelLink').href = 'wheel.html?location=' + id;
 }
 
@@ -167,9 +165,9 @@ function buildTicker() {
   const locationCount = allLocations.length;
   const evergreen = [
     `\ud83c\udfc3 ${locationCount} parkrun${locationCount === 1 ? '' : 's'} across Brisbane`,
-    'Registered runners can win a $20 Woolies gift card after they finish their parkrun',
+    'Everyone who finishes their local parkrun is automatically in the draw \u2014 no signup needed',
     'Winners drawn live at 8am every Sunday morning',
-    `${locationCount} draw${locationCount === 1 ? '' : 's'} \u2014 ${locationCount} \u00d7 $20 being won by registered runners`
+    `${locationCount} draw${locationCount === 1 ? '' : 's'} \u2014 real cash prizes up for grabs this week`
   ];
 
   const dataItems = withData.map(s => {
