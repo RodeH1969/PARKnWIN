@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PARKnSPIN</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 420px; margin: 24px auto; padding: 0 16px; color: #222; }
+  .location { text-align: center; font-size: 13px; color: #666; margin-bottom: 16px; }
+  .sponsor-banner { background: #2C2C2A; border-radius: 16px; padding: 22px 20px; text-align: center; margin-bottom: 16px; }
+  .sponsor-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #FAC775; margin-bottom: 12px; }
+  .sponsor-logo { width: 100%; height: 170px; border-radius: 10px; margin: 0 0 14px; overflow: hidden; }
+  .sponsor-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sponsor-name { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .sponsor-prize { font-size: 15px; color: #D3D1C7; }
+  .stats { display: flex; gap: 10px; margin-bottom: 16px; }
+  .stat-box { flex: 1; background: #f4f4f2; border-radius: 12px; padding: 12px; text-align: center; }
+  .stat-label { font-size: 11px; color: #888; margin-bottom: 2px; }
+  .stat-value { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .slot-frame { position: relative; max-width: 380px; margin: 0 auto 8px; padding: 34px 20px 20px; border-radius: 24px;
+    background: linear-gradient(155deg, #e8e8e8 0%, #9a9a9a 15%, #4a4a4a 40%, #1a1a1a 55%, #4a4a4a 70%, #9a9a9a 88%, #e8e8e8 100%);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4), inset 0 -2px 6px rgba(0,0,0,0.6); }
+  .marquee-banner { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(180deg, #E24B4A, #B32B2A);
+    color: #fff; font-weight: 800; font-size: 13px; letter-spacing: 3px; padding: 6px 22px; border-radius: 20px;
+    border: 2px solid #FAC775; box-shadow: 0 3px 8px rgba(0,0,0,0.5); z-index: 6; }
+  .bulb-ring { position: absolute; inset: 8px; pointer-events: none; z-index: 5; }
+  .bulb { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #FAC775;
+    box-shadow: 0 0 2px rgba(0,0,0,0.4); opacity: 0.25; animation: bulb-chase 1.2s infinite; }
+  .bulb.lit { box-shadow: 0 0 8px 2px #FFE9A8, 0 0 2px rgba(0,0,0,0.4); }
+  @keyframes bulb-chase { 0%, 60%, 100% { opacity: 0.25; box-shadow: 0 0 2px rgba(0,0,0,0.4); } 20% { opacity: 1; box-shadow: 0 0 10px 3px #FFE9A8; } }
+  .reel-wrap { position: relative; width: 100%; max-width: 340px; height: 240px; margin: 0 auto; overflow: hidden; border-radius: 16px; border: 3px solid #FAC775; background: linear-gradient(180deg, #1a1a1a, #2C2C2A); box-shadow: 0 0 24px rgba(250,199,117,0.35), inset 0 0 40px rgba(0,0,0,0.6); }
+  .reel-pointer { position: absolute; top: 50%; left: 0; right: 0; height: 56px; transform: translateY(-50%); border-top: 3px solid #FAC775; border-bottom: 3px solid #FAC775; z-index: 3; pointer-events: none; box-shadow: 0 0 14px rgba(250,199,117,0.7); }
+  .reel-fade { position: absolute; inset: 0; background: linear-gradient(to bottom, #1a1a1a 0%, transparent 38%, transparent 62%, #1a1a1a 100%); z-index: 2; pointer-events: none; }
+  #reel { position: absolute; left: 0; right: 0; top: 0; }
+  .reel-row { height: 56px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; gap: 8px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+  #countdownOverlay, #overlay { display: none; position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(30,20,10,0.92), rgba(0,0,0,0.96)); align-items: center; justify-content: center; z-index: 60; flex-direction: column; border-radius: 13px; }
+  #waitingCover { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(circle at center, #2a2210, #1a1a1a); }
+  #waitingContent { display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.35s; }
+  .waiting-icon { font-size: 64px; font-weight: 800; color: #FAC775; text-shadow: 0 0 24px rgba(250,199,117,0.8); animation: waiting-pulse 1.6s ease-in-out infinite; }
+  .waiting-title { font-size: 18px; font-weight: 700; color: #fff; margin-top: 8px; letter-spacing: 1px; text-align: center; padding: 0 16px; }
+  .waiting-sub { font-size: 13px; color: #D3D1C7; margin-top: 4px; text-align: center; padding: 0 16px; }
+  .stat-icon { font-size: 40px; margin-bottom: 4px; }
+  .stat-big { font-size: 30px; font-weight: 800; color: #FAC775; margin-top: 4px; }
+  @keyframes waiting-pulse { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.15); opacity: 1; } }
+  #countdownNum { font-size: 84px; font-weight: 800; color: #FAC775; text-shadow: 0 0 30px rgba(250,199,117,0.8); }
+  #overlayCard { background: linear-gradient(160deg, #2C2C2A, #1a1a1a); border: 2px solid #FAC775; border-radius: 18px; padding: 2.2rem 2.4rem; text-align: center; transform: scale(0.6); opacity: 0; transition: transform 0.5s cubic-bezier(.2,1.6,.4,1), opacity 0.4s; box-shadow: 0 0 40px rgba(250,199,117,0.5); }
+  #winnerName { font-size: 38px; font-weight: 800; margin-bottom: 8px; color: #fff; text-shadow: 0 0 18px rgba(250,199,117,0.6); }
+</style>
+</head>
+<body>
+
+<img src="logo.png" alt="PARKnSPIN" style="width:120px; display:block; margin:0 auto 4px;">
+<div class="location" id="locationName">Loading...</div>
+
+<div class="sponsor-banner">
+  <div class="sponsor-eyebrow">TODAY'S SPONSOR</div>
+  <div class="sponsor-logo" id="sponsorLogo" style="display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.08); font-size:32px; color:#FAC775;">?</div>
+  <div class="sponsor-name" id="sponsorName">TBC</div>
+  <div class="sponsor-prize" id="sponsorPrize"></div>
+</div>
+
+<div id="soundBanner" onclick="unlockSound()" style="text-align:center; background:#FAC775; color:#2C2C2A; font-weight:700; font-size:13px; padding:8px; border-radius:8px; margin-bottom:10px; cursor:pointer;">
+  🔊 Tap for sound
+</div>
+
+<div class="stats">
+  <div class="stat-box">
+    <div class="stat-label">Draw in</div>
+    <div class="stat-value" id="clock">--:--:--</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Runners</div>
+    <div class="stat-value" id="entryCount">0</div>
+  </div>
+</div>
+
+<div class="slot-frame" id="slotFrame">
+  <div class="marquee-banner">PARK<span style="color:#FAC775;">n</span>SPIN</div>
+  <div class="bulb-ring" id="bulbRing"></div>
+  <div class="reel-wrap" id="reelWrap">
+    <div class="reel-pointer"></div>
+    <div class="reel-fade"></div>
+    <div id="reel"></div>
+
+    <div id="waitingCover">
+      <div id="waitingContent">
+        <div class="waiting-icon">?</div>
+        <div class="waiting-title">Who's it gonna be?</div>
+        <div class="waiting-sub">Winner revealed live — stay tuned</div>
+      </div>
+    </div>
+
+    <div id="countdownOverlay"><div id="countdownNum">3</div></div>
+    <div id="overlay">
+      <div id="overlayCard">
+        <div id="overlayLabel" style="font-size:13px; font-weight:600; color:#D85A30; letter-spacing:1px; margin-bottom:6px;">WINNER</div>
+        <div id="winnerName"></div>
+        <div style="font-size:13px; color:#666;" id="overlayPrize"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="dates.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.2/confetti.browser.min.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const locationId = params.get('location');
+const rowH = 56;
+
+let names = [];
+let drawTimeMs = null;
+let spinTriggered = false;
+let handledDraw = false; // true once this browser has started or shown its own reveal — stops the poll loop from interfering
+const reel = document.getElementById('reel');
+
+function initBulbRing() {
+  const ring = document.getElementById('bulbRing');
+  const frame = document.getElementById('slotFrame');
+  const w = frame.offsetWidth - 16;
+  const h = frame.offsetHeight - 16;
+  const spacing = 26;
+  const perimeter = 2*(w+h);
+  const count = Math.max(16, Math.floor(perimeter/spacing));
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const dist = (i/count) * perimeter;
+    let x, y;
+    if (dist < w) { x = dist; y = 0; }
+    else if (dist < w+h) { x = w; y = dist-w; }
+    else if (dist < 2*w+h) { x = w-(dist-w-h); y = h; }
+    else { x = 0; y = h-(dist-2*w-h); }
+    const delay = (i % 6) * 0.2;
+    html += `<div class="bulb" style="left:${x}px; top:${y}px; animation-delay:${delay}s;"></div>`;
+  }
+  ring.innerHTML = html;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function renderReel() {
+  reel.innerHTML = '';
+  if (names.length === 0) return;
+  const loopCount = 8;
+  let html = '';
+  for (let l = 0; l < loopCount; l++) {
+    for (const n of names) {
+      html += '<div class="reel-row">' + escapeHtml(n) + '</div>';
+    }
+  }
+  reel.innerHTML = html;
+  reel.style.transform = 'translateY(0px)';
+  reel.style.filter = 'none';
+}
+
+async function loadLocationName() {
+  const res = await fetch('/api/locations');
+  const locs = await res.json();
+  const loc = locs.find(l => l.id === locationId);
+  document.getElementById('locationName').textContent = loc ? loc.name + ' parkrun' : 'Unknown location';
+}
+
+async function loadDraw() {
+  if (handledDraw) return; // this browser already started or completed its own reveal — ignore further polls
+
+  const res = await fetch('/api/draws/current?location_id=' + locationId + '&draw_date=' + getRelevantSaturday(), { cache: 'no-store' });
+  const data = await res.json();
+
+  if (!data.draw) {
+    document.getElementById('sponsorName').textContent = 'Not set up yet';
+    document.getElementById('sponsorPrize').textContent = 'Check back closer to Sunday\u2019s draw';
+    document.querySelector('.stats').style.display = 'none';
+    document.getElementById('reelWrap').style.display = 'none';
+    document.getElementById('soundBanner').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('sponsorName').textContent = data.draw.sponsor_name || 'TBC';
+  document.getElementById('sponsorPrize').textContent = data.draw.prize_label || '';
+  if (data.draw.sponsor_logo_url) {
+    document.getElementById('sponsorLogo').innerHTML = '<img src="' + data.draw.sponsor_logo_url + '">';
+  }
+  drawTimeMs = data.draw.draw_time ? new Date(data.draw.draw_time).getTime() : null;
+
+  const seenNames = {};
+  for (const e of (data.entrants || [])) {
+    const key = e.finisher_name.replace(/\s+/g,' ').trim().toLowerCase();
+    if (!seenNames[key]) seenNames[key] = e.finisher_name;
+  }
+  names = Object.values(seenNames);
+
+  document.getElementById('entryCount').textContent = names.length;
+
+  setupWaitingSlides(data.draw);
+
+  if (data.draw.status !== 'drawn') {
+    renderReel();
+  }
+
+  if (data.draw.status === 'drawn' && data.winnerName) {
+    handledDraw = true; // fresh load after the fact — show it once, then stop polling/ticking
+    document.getElementById('waitingCover').style.display = 'none';
+    let winnerIndex = names.findIndex(n => n.replace(/\s+/g,' ').trim().toLowerCase() === data.winnerName.replace(/\s+/g,' ').trim().toLowerCase());
+    if (winnerIndex === -1) winnerIndex = 0;
+    renderReel();
+    const finalOffset = 6*names.length*rowH + winnerIndex*rowH - 92;
+    reel.style.transform = 'translateY(' + (-finalOffset) + 'px)';
+    showWinner(data.winnerName, data.draw.prize_label);
+    document.getElementById('clock').textContent = '00:00:00';
+  }
+}
+
+let waitingSlides = [];
+let waitingSlideIndex = 0;
+let waitingCycleStarted = false;
+
+function setupWaitingSlides(draw) {
+  const mystery = { icon: '?', title: "Who's it gonna be?", sub: 'Winner revealed live \u2014 stay tuned' };
+  const slides = [mystery];
+
+  if (draw.starters != null) slides.push({ icon: '\ud83c\udfc3', title: draw.starters + ' starters today', sub: draw.finishers != null ? draw.finishers + ' crossed the line' : '' });
+  if (draw.male_winner_name) slides.push({ icon: '\ud83e\udd47', title: draw.male_winner_name, sub: 'Male winner' + (draw.male_winner_time ? ' \u2014 ' + draw.male_winner_time : '') });
+  if (draw.female_winner_name) slides.push({ icon: '\ud83e\udd47', title: draw.female_winner_name, sub: 'Female winner' + (draw.female_winner_time ? ' \u2014 ' + draw.female_winner_time : '') });
+  if (draw.average_time) slides.push({ icon: '\u23f1\ufe0f', title: draw.average_time, sub: "Today's average time" });
+
+  waitingSlides = slides;
+  if (!waitingCycleStarted) {
+    waitingCycleStarted = true;
+    showWaitingSlide(0);
+    setInterval(cycleWaitingSlide, 4000);
+  }
+}
+
+function showWaitingSlide(i) {
+  const s = waitingSlides[i];
+  if (!s) return;
+  const el = document.getElementById('waitingContent');
+  el.style.opacity = '0';
+  setTimeout(function(){
+    el.innerHTML = `<div class="${i === 0 ? 'waiting-icon' : 'stat-icon'}">${s.icon}</div>
+      <div class="waiting-title">${s.title}</div>
+      <div class="waiting-sub">${s.sub}</div>`;
+    el.style.opacity = '1';
+  }, 350);
+}
+
+function cycleWaitingSlide() {
+  if (handledDraw || waitingSlides.length <= 1) return;
+  waitingSlideIndex = (waitingSlideIndex + 1) % waitingSlides.length;
+  showWaitingSlide(waitingSlideIndex);
+}
+
+function tickClock() {
+  const clockEl = document.getElementById('clock');
+  if (handledDraw) return;
+  if (!drawTimeMs) { clockEl.textContent = '--:--:--'; return; }
+  const diff = drawTimeMs - Date.now();
+  if (diff <= 0) {
+    clockEl.textContent = '00:00:00';
+    if (!spinTriggered) {
+      if (names.length === 0) {
+        // Draw time hit but results haven't been pasted in yet — keep waiting, don't give up silently
+        const sub = document.querySelector('#waitingContent .waiting-sub');
+        if (sub) sub.textContent = "Results being finalised \u2014 draw will run any moment";
+        return;
+      }
+      spinTriggered = true;
+      handledDraw = true; // this browser is about to run its own countdown+spin — stop polling from interfering
+      startCountdownThenSpin();
+    }
+    return;
+  }
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  clockEl.textContent = [h,m,s].map(n => String(n).padStart(2,'0')).join(':');
+}
+
+let audioCtx;
+function getCtx() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+
+function unlockSound() {
+  const ac = getCtx();
+  if (ac.state === 'suspended') ac.resume();
+  // Play a silent, near-instant blip — this is what actually unlocks audio on iOS/mobile,
+  // since the browser needs to see real playback happen inside the tap, not just a resume() call.
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  g.gain.value = 0.0001;
+  o.connect(g); g.connect(ac.destination);
+  o.start(); o.stop(ac.currentTime + 0.05);
+  document.getElementById('soundBanner').style.display = 'none';
+}
+function tone(freq, dur, type, vol) {
+  const ac = getCtx();
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq; g.gain.value = vol || 0.08;
+  o.connect(g); g.connect(ac.destination); o.start();
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+  o.stop(ac.currentTime + dur);
+}
+function boom(vol) {
+  const ac = getCtx();
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(140, ac.currentTime);
+  o.frequency.exponentialRampToValueAtTime(30, ac.currentTime + 0.5);
+  g.gain.value = vol || 0.2;
+  o.connect(g); g.connect(ac.destination); o.start();
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.5);
+  o.stop(ac.currentTime + 0.5);
+}
+function bang() {
+  const ac = getCtx();
+  const bufferSize = ac.sampleRate * 0.35;
+  const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * Math.pow(1 - i/bufferSize, 2);
+  const noise = ac.createBufferSource();
+  noise.buffer = buffer;
+  const g = ac.createGain(); g.gain.value = 0.35;
+  noise.connect(g); g.connect(ac.destination); noise.start();
+  boom(0.3);
+}
+function fanfare() {
+  [523,659,784,1047,1319].forEach((f,i) => setTimeout(()=> tone(f,0.6,'triangle',0.14), i*120));
+}
+function fireworksLoop(times) {
+  let count = 0;
+  const sets = [['#EF9F27','#D85A30'],['#378ADD','#7F77DD'],['#639922','#1D9E75'],['#D4537E','#E24B4A']];
+  const interval = setInterval(function(){
+    confetti({particleCount:70, spread:100, startVelocity:45, origin:{x:0.2+Math.random()*0.6,y:0.2+Math.random()*0.3}, colors: sets[count % sets.length]});
+    boom(0.18);
+    count++;
+    if (count >= times) clearInterval(interval);
+  }, 500);
+}
+function womp() {
+  const ac = getCtx();
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(300, ac.currentTime);
+  o.frequency.exponentialRampToValueAtTime(120, ac.currentTime + 0.9);
+  g.gain.value = 0.12;
+  o.connect(g); g.connect(ac.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.9);
+  o.stop(ac.currentTime + 0.9);
+}
+
+function startCountdownThenSpin() {
+  if (names.length === 0) return;
+  document.getElementById('waitingCover').style.display = 'none';
+  const overlay = document.getElementById('countdownOverlay');
+  const num = document.getElementById('countdownNum');
+  overlay.style.display = 'flex';
+  let count = 3;
+  num.textContent = count;
+  tone(392, 0.15, 'sine', 0.1);
+  const interval = setInterval(function(){
+    count--;
+    if (count > 0) {
+      num.textContent = count;
+      tone(392, 0.15, 'sine', 0.1);
+    } else {
+      clearInterval(interval);
+      num.textContent = 'SPIN!';
+      bang();
+      setTimeout(function(){
+        overlay.style.display = 'none';
+        runSpin();
+      }, 350);
+    }
+  }, 800);
+}
+
+async function runSpin() {
+  renderReel();
+
+  let result;
+  let httpStatus;
+  try {
+    const res = await fetch('/api/draws/pick-winner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parkrun_location_id: locationId, draw_date: getRelevantSaturday() })
+    });
+    httpStatus = res.status;
+    result = await res.json();
+  } catch (err) {
+    result = { error: err.message };
+  }
+
+  if (result.error || !result.winnerName) {
+    console.error('Draw failed to pick a winner. HTTP status:', httpStatus, 'Full response:', JSON.stringify(result));
+    const sub = document.querySelector('#waitingContent .waiting-sub');
+    document.getElementById('waitingCover').style.display = 'flex';
+    document.getElementById('countdownOverlay').style.display = 'none';
+    if (sub) sub.textContent = 'Draw hit a snag \u2014 retrying in a few seconds\u2026';
+    else {
+      const title = document.querySelector('#waitingContent .waiting-title');
+      if (title) title.textContent = 'Draw hit a snag \u2014 retrying in a few seconds\u2026';
+    }
+    setTimeout(async function() {
+      spinTriggered = false;
+      handledDraw = false;
+      await loadDraw();
+      tickClock();
+    }, 4000);
+    return;
+  }
+
+  let winnerIndex = names.findIndex(n => n.replace(/\s+/g,' ').trim().toLowerCase() === result.winnerName.replace(/\s+/g,' ').trim().toLowerCase());
+  if (winnerIndex === -1) winnerIndex = 0;
+
+  const v0 = 70;
+  const t1 = 3.0, t2 = 1.4, t3 = 3.0, t4 = 1.6, t5 = 3.0, t6 = 0.9;
+  const totalDur = t1+t2+t3+t4+t5+t6;
+
+  const targetLoop = 6;
+  const targetRow = targetLoop*names.length + winnerIndex;
+  const D = targetRow*rowH - 92;
+
+  const vmax = (D - v0*(t1+t5+t6/2+(t2+t4)/2)) / (t3+(t2+t4)/2);
+
+  const segs = [
+    {v0:v0, v1:v0, dur:t1},
+    {v0:v0, v1:vmax, dur:t2},
+    {v0:vmax, v1:vmax, dur:t3},
+    {v0:vmax, v1:v0, dur:t4},
+    {v0:v0, v1:v0, dur:t5},
+    {v0:v0, v1:0, dur:t6}
+  ];
+  let cumTime = 0, cumPos = 0;
+  for (const s of segs) { s.startTime = cumTime; s.startPos = cumPos; cumTime += s.dur; cumPos += (s.v0+s.v1)/2*s.dur; }
+
+  function posSpeedAt(elapsed) {
+    let seg = segs[segs.length-1];
+    for (const s of segs) { if (elapsed <= s.startTime + s.dur) { seg = s; break; } }
+    const lt = Math.min(elapsed - seg.startTime, seg.dur);
+    const speed = seg.v0 + (seg.v1-seg.v0)*(lt/seg.dur);
+    const pos = seg.startPos + seg.v0*lt + (seg.v1-seg.v0)*lt*lt/(2*seg.dur);
+    return {pos, speed};
+  }
+
+  const startTime = performance.now();
+  let lastRow = -1;
+
+  function frame(now) {
+    const elapsed = (now - startTime)/1000;
+    const clamped = Math.min(elapsed, totalDur);
+    const result2 = posSpeedAt(clamped);
+    const pos = result2.pos, speed = result2.speed;
+
+    reel.style.transform = 'translateY(' + (-pos) + 'px)';
+    const blurAmt = Math.min(speed/60, 6);
+    reel.style.filter = blurAmt > 0.3 ? 'blur('+blurAmt+'px)' : 'none';
+
+    const currentRow = Math.round(pos/rowH);
+    if (currentRow !== lastRow && speed > 3) {
+      lastRow = currentRow;
+      tone(400+Math.min(speed*2,500), 0.04, 'square', 0.03+Math.min(speed/400,0.06));
+    }
+
+    if (elapsed < totalDur) {
+      requestAnimationFrame(frame);
+    } else {
+      showWinner(result.winnerName, document.getElementById('sponsorPrize').textContent);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function showWinner(name, prize) {
+  const label = document.getElementById('overlayLabel');
+  const overlayCard = document.getElementById('overlayCard');
+  document.getElementById('winnerName').textContent = name;
+
+  label.textContent = 'WINNER';
+  label.style.color = '#D85A30';
+  document.getElementById('overlayPrize').innerHTML = (prize || '') + '<br><strong style="color:#D85A30;">Claim within 30 minutes \u2014 text a photo of your ID to claim.</strong>';
+  fanfare();
+
+  if (window.confetti) {
+    confetti({particleCount:200, spread:100, origin:{y:0.4}});
+    fireworksLoop(6);
+  }
+
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(function(){
+    overlayCard.style.transform = 'scale(1)';
+    overlayCard.style.opacity = '1';
+  });
+}
+
+initBulbRing();
+loadLocationName();
+loadDraw();
+setInterval(tickClock, 1000);
+setInterval(loadDraw, 15000);
+</script>
+
+</body>
+</html>

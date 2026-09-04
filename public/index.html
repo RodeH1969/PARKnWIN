@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PARKnSPIN</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; margin: 0; padding: 0 16px 40px; color: #222; background: #fff; }
+  .wrap { max-width: 460px; margin: 0 auto; }
+
+  /* --- Ticker --- */
+  .ticker-outer { background: #2C2C2A; overflow: hidden; margin: 0 -16px 0; padding: 8px 0; white-space: nowrap; }
+  .ticker-track { display: inline-block; animation: ticker-scroll 10s linear infinite; }
+  .ticker-track span { color: #FAC775; font-size: 13px; font-weight: 600; margin-right: 40px; }
+  @keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* --- Hero --- */
+  .hero { position: relative; text-align: center; padding: 28px 0 8px; overflow: hidden; }
+  .hero-content { position: relative; opacity: 0; transform: translateY(14px); animation: hero-in 0.7s ease-out forwards; }
+  @keyframes hero-in { to { opacity: 1; transform: translateY(0); } }
+  .hero-logo-row { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; height: 150px; }
+  .hero-logo { width: 150px; position: relative; z-index: 2; }
+  .hero-flank { position: absolute; top: 50%; width: 78px; opacity: 0.9; transform: translateY(-50%); z-index: 1; }
+  .hero-flank-left { left: calc(50% - 158px); animation: run-left 2.6s linear infinite; }
+  .hero-flank-right { left: calc(50% + 80px); animation: run-right 2.6s linear infinite; }
+  @keyframes run-left {
+    0% { transform: translateY(-50%) translateX(0); opacity: 0.9; }
+    85% { opacity: 0.9; }
+    100% { transform: translateY(-50%) translateX(-90px); opacity: 0; }
+  }
+  @keyframes run-right {
+    0% { transform: translateY(-50%) translateX(0); opacity: 0.9; }
+    85% { opacity: 0.9; }
+    100% { transform: translateY(-50%) translateX(90px); opacity: 0; }
+  }
+  .hero p { color: #666; font-size: 15px; margin: 8px 0 0; }
+
+  /* --- Live countdown --- */
+  .live-countdown { background: linear-gradient(160deg, #2C2C2A, #1a1a1a); border-radius: 16px; padding: 16px; text-align: center; margin: 18px 0; border: 2px solid #FAC775; box-shadow: 0 0 20px rgba(250,199,117,0.3); }
+  .live-countdown .lc-label { font-size: 11px; letter-spacing: 2px; color: #FAC775; font-weight: 700; }
+  .live-countdown .lc-location { font-size: 14px; color: #D3D1C7; margin-top: 2px; }
+  .live-countdown .lc-time { font-size: 32px; font-weight: 800; color: #fff; margin-top: 6px; font-variant-numeric: tabular-nums; animation: lc-pulse 1.8s ease-in-out infinite; }
+  @keyframes lc-pulse { 0%, 100% { text-shadow: 0 0 8px rgba(250,199,117,0.4); } 50% { text-shadow: 0 0 20px rgba(250,199,117,0.9); } }
+
+  /* --- Steps (scroll reveal) --- */
+  .steps { display: flex; flex-direction: column; gap: 10px; margin: 24px 0; }
+  .step { display: flex; align-items: center; gap: 12px; background: #f4f4f2; border-radius: 10px; padding: 12px 14px;
+    opacity: 0; transform: translateX(-16px); transition: opacity 0.5s, transform 0.5s; }
+  .step.revealed { opacity: 1; transform: translateX(0); }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; background: #D85A30; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+  .step-text { font-size: 14px; }
+
+  /* --- Location carousel --- */
+  .carousel-heading { font-size: 15px; font-weight: 700; margin: 24px 0 8px; }
+  .carousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+  .carousel::-webkit-scrollbar { display: none; }
+  .loc-card { flex: 0 0 78%; scroll-snap-align: start; background: #2C2C2A; border-radius: 14px; overflow: hidden; border: 1px solid #444; }
+  .loc-card-img { width: 100%; height: 100px; object-fit: cover; display: block; background: #1a1a1a; }
+  .loc-card-body { padding: 12px 14px; }
+  .loc-card-name { color: #fff; font-weight: 700; font-size: 15px; }
+  .loc-card-sponsor { color: #D3D1C7; font-size: 12px; margin-top: 2px; }
+  .loc-card-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .loc-card-runners { color: #FAC775; font-size: 12px; font-weight: 600; }
+  .loc-card-time { color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  /* --- Register form --- */
+  select { width: 100%; padding: 10px; font-size: 15px; margin: 8px 0; }
+  .btn { display: block; width: 100%; padding: 12px; font-size: 15px; font-weight: 600; border: none; border-radius: 8px; margin-bottom: 10px; cursor: pointer; text-decoration: none; box-sizing: border-box; text-align: center; }
+  .btn-primary { background: #D85A30; color: #fff; }
+  .btn-secondary { background: #eee; color: #222; }
+</style>
+</head>
+<body>
+
+<div class="ticker-outer">
+  <div class="ticker-track" id="tickerTrack">
+    <span>Loading this week's action across Brisbane…</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-logo-row">
+        <div class="hero-flank hero-flank-left"><img src="runner-male.png" alt="" style="width:100%; transform: scaleX(-1); display:block;"></div>
+        <img class="hero-logo" src="logo.png" alt="PARKnSPIN">
+        <div class="hero-flank hero-flank-right"><img src="runner.png" alt="" style="width:100%; display:block;"></div>
+      </div>
+      <p>Run your local parkrun. Get in the draw. Win a prize — every Saturday.</p>
+    </div>
+  </div>
+
+  <div class="live-countdown" id="liveCountdown" style="display:none;">
+    <div class="lc-label">NEXT DRAW</div>
+    <div class="lc-location" id="lcLocation"></div>
+    <div class="lc-time" id="lcTime">--:--:--</div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Register below with the exact name you use for parkrun, and your mobile</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Run your local parkrun as normal, this Saturday</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">If your name's on the results, you're automatically in that parkrun's draw</div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text">The wheel spins live after parkrun — win and we text you</div>
+    </div>
+  </div>
+
+  <div class="carousel-heading">This week, across Brisbane</div>
+  <div class="carousel" id="carousel"></div>
+
+  <select id="locationSelect" style="margin-top:20px;"></select>
+  <a class="btn btn-primary" id="registerLink" href="#">Register for this parkrun</a>
+  <a class="btn btn-secondary" id="wheelLink" href="#">Watch this week's wheel</a>
+
+</div>
+
+<script src="dates.js"></script>
+<script>
+let allLocations = [];
+let summary = [];
+
+async function loadLocations() {
+  const res = await fetch('/api/locations');
+  allLocations = await res.json();
+  const select = document.getElementById('locationSelect');
+  select.innerHTML = '';
+  for (const loc of allLocations) {
+    const opt = document.createElement('option');
+    opt.value = loc.id;
+    opt.textContent = loc.name;
+    select.appendChild(opt);
+  }
+  updateLinks();
+  select.addEventListener('change', updateLinks);
+}
+
+function updateLinks() {
+  const id = document.getElementById('locationSelect').value;
+  document.getElementById('registerLink').href = 'register.html?location=' + id;
+  document.getElementById('wheelLink').href = 'wheel.html?location=' + id;
+}
+
+async function loadSummary() {
+  const res = await fetch('/api/draws/summary?draw_date=' + getRelevantSaturday());
+  summary = await res.json();
+  buildTicker();
+  buildCountdown();
+  buildCarousel();
+}
+
+function buildTicker() {
+  const track = document.getElementById('tickerTrack');
+  const withData = summary.filter(s => s.sponsor_name || s.runners > 0);
+
+  const locationCount = allLocations.length;
+  const evergreen = [
+    `\ud83c\udfc3 ${locationCount} parkrun${locationCount === 1 ? '' : 's'} across Brisbane`,
+    'Registered runners can win a $20 Woolies gift card after they finish their parkrun',
+    'Winners drawn live at 8am every Sunday morning',
+    `${locationCount} draw${locationCount === 1 ? '' : 's'} \u2014 ${locationCount} \u00d7 $20 being won by registered runners`
+  ];
+
+  const dataItems = withData.map(s => {
+    if (s.status === 'drawn') return `\ud83c\udfc6 ${s.location_name}: drawn \u2014 check the wheel page for the winner`;
+    if (s.runners > 0 && s.sponsor_name) return `\ud83c\udfc3 ${s.location_name}: ${s.runners} runners \u00b7 ${s.prize_label || 'prize up for grabs'} from ${s.sponsor_name}`;
+    if (s.runners > 0) return `\ud83c\udfc3 ${s.location_name}: ${s.runners} runners so far this week`;
+    return `${s.location_name}: ${s.prize_label || "today's prize"} sponsored by ${s.sponsor_name}`;
+  });
+
+  const items = [...dataItems, ...evergreen];
+  runTickerAnimation(track, items);
+}
+
+function runTickerAnimation(track, items) {
+  const html = items.map(t => `<span>${t}</span>`).join('');
+  track.innerHTML = html + html; // duplicated for seamless loop
+  track.style.animation = 'none';
+
+  // Speed is driven by actual pixel width, not a fixed duration, so it always
+  // sweeps the full screen at a consistent pace regardless of how much text there is.
+  requestAnimationFrame(() => {
+    const fullWidth = track.scrollWidth / 2; // half, since content is duplicated
+    const pxPerSecond = 140;
+    const duration = Math.max(fullWidth / pxPerSecond, 4);
+    track.style.animation = `ticker-scroll ${duration}s linear infinite`;
+  });
+}
+
+function buildCountdown() {
+  const upcoming = summary
+    .filter(s => s.draw_time && s.status !== 'drawn' && new Date(s.draw_time).getTime() > Date.now())
+    .sort((a, b) => new Date(a.draw_time) - new Date(b.draw_time));
+  const box = document.getElementById('liveCountdown');
+  if (upcoming.length === 0) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  document.getElementById('lcLocation').textContent = upcoming[0].location_name + ' parkrun';
+  box.dataset.time = new Date(upcoming[0].draw_time).getTime();
+}
+
+function tickLiveCountdown() {
+  const box = document.getElementById('liveCountdown');
+  if (box.style.display === 'none' || !box.dataset.time) return;
+  const diff = Number(box.dataset.time) - Date.now();
+  const el = document.getElementById('lcTime');
+  if (diff <= 0) { el.textContent = 'Spinning now…'; return; }
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  el.textContent = [h,m,s].map(n => String(n).padStart(2,'0')).join(':');
+}
+
+function buildCarousel() {
+  const el = document.getElementById('carousel');
+  const heading = document.querySelector('.carousel-heading');
+  const withSponsor = summary.filter(s => s.sponsor_name);
+  heading.style.display = '';
+  if (withSponsor.length === 0) {
+    el.innerHTML = '<div style="font-size:13px; color:#888; padding:8px 0;">Nothing set up for this Saturday yet \u2014 check back closer to draw day.</div>';
+    return;
+  }
+  el.innerHTML = withSponsor.map(s => {
+    const img = s.sponsor_logo_url ? `<img class="loc-card-img" src="${s.sponsor_logo_url}">` : `<div class="loc-card-img" style="display:flex;align-items:center;justify-content:center;color:#FAC775;font-size:24px;">?</div>`;
+    const timeLabel = s.status === 'drawn' ? 'Drawn' : (s.draw_time ? new Date(s.draw_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBC');
+    return `<div class="loc-card">
+      ${img}
+      <div class="loc-card-body">
+        <div class="loc-card-name">${s.location_name}</div>
+        <div class="loc-card-sponsor">${s.sponsor_name}${s.prize_label ? ' \u2014 ' + s.prize_label : ''}</div>
+        <div class="loc-card-row">
+          <span class="loc-card-runners">${s.runners} runners</span>
+          <span class="loc-card-time">${timeLabel}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function initScrollReveal() {
+  const steps = document.querySelectorAll('.step');
+  steps.forEach((s, i) => { s.style.transitionDelay = (i * 0.15) + 's'; });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('revealed');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.2 });
+
+  // Wait a frame so the browser actually paints the hidden state first —
+  // otherwise steps already on-screen reveal instantly and the animation is invisible.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    steps.forEach(s => observer.observe(s));
+  }));
+}
+
+initScrollReveal();
+loadLocations();
+loadSummary();
+setInterval(tickLiveCountdown, 1000);
+setInterval(loadSummary, 30000);
+</script>
+
+</body>
+</html>

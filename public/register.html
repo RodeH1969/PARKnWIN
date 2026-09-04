@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register — PARKnSPIN</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 420px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 22px; text-align: center; }
+  p { color: #666; font-size: 14px; text-align: center; }
+  label { display: block; font-size: 13px; color: #555; margin-top: 14px; }
+  input { width: 100%; padding: 10px; font-size: 15px; margin-top: 4px; box-sizing: border-box; }
+  button { width: 100%; padding: 12px; font-size: 15px; font-weight: 600; border: none; border-radius: 8px; background: #D85A30; color: #fff; margin-top: 20px; cursor: pointer; }
+  #status { margin-top: 14px; font-size: 14px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>PARKnSPIN</h1>
+<p>Use the exact name you're registered under with parkrun — that's how we match you to Saturday's results.</p>
+
+<label for="name">Full name</label>
+<input id="name" type="text">
+
+<label for="mobile">Mobile number</label>
+<input id="mobile" type="tel">
+
+<button onclick="register()">Register</button>
+<div id="status"></div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const locationId = params.get('location');
+
+async function register() {
+  const name = document.getElementById('name').value;
+  const mobile = document.getElementById('mobile').value;
+  const statusEl = document.getElementById('status');
+
+  if (!name.trim() || !mobile.trim() || !locationId) {
+    statusEl.textContent = 'Please fill in your name and mobile.';
+    return;
+  }
+
+  const res = await fetch('/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mobile, parkrun_location_id: locationId })
+  });
+  const data = await res.json();
+
+  if (data.error) {
+    statusEl.textContent = data.error;
+  } else {
+    statusEl.textContent = "You're registered! Taking you to the draw page...";
+    setTimeout(() => {
+      window.location.href = 'wheel.html?location=' + locationId;
+    }, 1500);
+  }
+}
+</script>
+
+</body>
+</html>

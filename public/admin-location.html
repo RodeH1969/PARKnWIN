@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PARKnSPIN Admin</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 560px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 20px; }
+  .backlink { font-size: 13px; color: #888; text-decoration: none; }
+  .hint { font-size: 12px; color: #888; margin: 2px 0 10px; }
+  textarea, input { width: 100%; box-sizing: border-box; padding: 8px; font-size: 14px; margin-top: 6px; }
+  textarea { height: 160px; font-family: monospace; }
+  button { margin-top: 10px; padding: 10px 18px; font-size: 14px; cursor: pointer; }
+  label { display: block; font-size: 13px; color: #555; margin-top: 10px; }
+  details { margin-top: 14px; border: 1px solid #ddd; border-radius: 8px; padding: 0 16px; }
+  details[open] { padding-bottom: 16px; }
+  summary { font-size: 15px; font-weight: 600; padding: 14px 0; cursor: pointer; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '\25b8'; display: inline-block; margin-right: 8px; transition: transform 0.15s; }
+  details[open] summary::before { transform: rotate(90deg); }
+</style>
+</head>
+<body>
+
+<a class="backlink" href="admin.html">← All locations</a>
+<h1 id="locationName">Loading...</h1>
+
+<details>
+<summary>Location settings</summary>
+<div class="hint">Set based on typical turnout at this parkrun. If named finishers (not counting "Unknown" unbarcoded runners) go over this number, the prize jumps to $100 that week — overriding the $50 speed tier.</div>
+<label>Big turnout threshold</label>
+<input id="turnoutThreshold" type="number" placeholder="e.g. 220">
+<button onclick="saveTurnoutThreshold()">Save</button>
+<div id="turnoutResult" style="font-size:13px; margin-top:6px;"></div>
+</details>
+
+<details open>
+<summary>This week's draw</summary>
+
+<label>Sponsor name</label>
+<input id="sponsorName" placeholder="e.g. Ray White Grange">
+
+<label>Sponsor logo</label>
+<input id="sponsorLogoFile" type="file" accept="image/*">
+<div id="currentLogoNote" style="font-size:12px; color:#888; margin-top:2px;"></div>
+
+<label>Prize label</label>
+<input id="prizeLabel" placeholder="e.g. $20 Woolies gift card">
+
+<label>Prize image</label>
+<input id="prizeImageFile" type="file" accept="image/*">
+<div id="currentPrizeImgNote" style="font-size:12px; color:#888; margin-top:2px;"></div>
+
+<label>Draw time</label>
+<input id="drawTime" type="datetime-local">
+
+<button onclick="saveDraw()">Save draw setup</button>
+<button onclick="resetDraw()" style="background:#eee; margin-left:8px;">Reset this week's draw</button>
+<div id="drawResult" style="font-size:13px; margin-top:6px;"></div>
+</details>
+
+<details open>
+<summary>This Saturday's finishers</summary>
+
+<div class="hint">Paste the results straight off the parkrun results page — one row per line. If you paste just names, that's fine too, but including the age category (e.g. "SM35-39") and finish time lets it work out starters, male/female winners, and average time automatically.</div>
+
+<textarea id="namesBox" placeholder="1 Jack Thompson SM30-34 16:42
+2 Sarah Chen SW25-29 18:55
+3 Dave Smith VM45-49 19:10"></textarea>
+<button onclick="saveEntrants()">Save</button>
+<div id="result" style="font-size:13px; margin-top:6px;"></div>
+
+<div id="statsDetected" style="font-size:13px; margin-top:10px; padding:10px; background:#f4f4f2; border-radius:6px; display:none;"></div>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+  <span id="entrantsSummary" style="font-size:13px; color:#555;">No names saved yet.</span>
+  <span>
+    <button onclick="toggleEntrantsList()" id="toggleEntrantsBtn" style="font-size:12px; padding:5px 10px;">Show list</button>
+    <button onclick="clearAllEntrants()" style="font-size:12px; padding:5px 10px;">Clear all</button>
+  </span>
+</div>
+<div id="entrantsList" style="font-size:13px; margin-top:8px; display:none;"></div>
+</details>
+
+<details>
+<summary>Draw history</summary>
+<div id="historyList" style="font-size:13px; margin-top:10px;"></div>
+</details>
+
+<script src="dates.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const locationId = params.get('location');
+
+async function loadLocationName() {
+  const res = await fetch('/api/locations');
+  const locations = await res.json();
+  const loc = locations.find(l => l.id === locationId);
+  document.getElementById('locationName').textContent = loc ? loc.name : 'Unknown location';
+  document.getElementById('turnoutThreshold').value = loc && loc.big_turnout_threshold != null ? loc.big_turnout_threshold : '';
+}
+
+async function saveTurnoutThreshold() {
+  const value = document.getElementById('turnoutThreshold').value;
+  const resultEl = document.getElementById('turnoutResult');
+  const res = await fetch('/api/locations/' + locationId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ big_turnout_threshold: value })
+  });
+  const data = await res.json();
+  if (data.error) {
+    resultEl.textContent = 'Error: ' + data.error;
+  } else {
+    resultEl.textContent = 'Saved.';
+  }
+}
+
+async function loadDrawSetup() {
+  const res = await fetch('/api/draws/current?location_id=' + locationId + '&draw_date=' + getRelevantSaturday());
+  const data = await res.json();
+  const draw = data.draw;
+
+  document.getElementById('sponsorName').value = draw ? (draw.sponsor_name || '') : '';
+  document.getElementById('prizeLabel').value = draw ? (draw.prize_label || '') : '';
+  renderDetectedStats(draw);
+
+  if (draw && draw.draw_time) {
+    const d = new Date(draw.draw_time);
+    const local = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    document.getElementById('drawTime').value = local;
+  } else {
+    document.getElementById('drawTime').value = '';
+  }
+
+  document.getElementById('currentLogoNote').textContent = draw && draw.sponsor_logo_url ? 'Current logo is set — choose a file only if replacing it.' : '';
+  document.getElementById('currentPrizeImgNote').textContent = draw && draw.prize_image_url ? 'Current prize image is set — choose a file only if replacing it.' : '';
+}
+
+async function uploadFile(inputEl) {
+  if (!inputEl.files || !inputEl.files[0]) return null;
+  const formData = new FormData();
+  formData.append('file', inputEl.files[0]);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.url;
+}
+
+async function resetDraw() {
+  if (!confirm("Clear this week's winner and let the draw run again? This can't be undone.")) return;
+  const resultEl = document.getElementById('drawResult');
+  const res = await fetch('/api/draws/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ parkrun_location_id: locationId, draw_date: getRelevantSaturday() })
+  });
+  const data = await res.json();
+  if (data.error) {
+    resultEl.textContent = 'Error: ' + data.error;
+  } else {
+    resultEl.textContent = 'Draw reset — it will run again on the wheel page.';
+    loadHistory();
+  }
+}
+
+async function saveDraw() {
+  const resultEl = document.getElementById('drawResult');
+  resultEl.textContent = 'Saving...';
+  try {
+    const sponsor_name = document.getElementById('sponsorName').value;
+    const prize_label = document.getElementById('prizeLabel').value;
+    const drawTimeLocal = document.getElementById('drawTime').value;
+    const draw_time = drawTimeLocal ? new Date(drawTimeLocal).toISOString() : null;
+
+    const numOrNull = id => { const v = document.getElementById(id).value; return v === '' ? null : Number(v); };
+    const strOrNull = id => { const v = document.getElementById(id).value; return v === '' ? null : v; };
+
+    const sponsor_logo_url = await uploadFile(document.getElementById('sponsorLogoFile'));
+    const prize_image_url = await uploadFile(document.getElementById('prizeImageFile'));
+
+    const res = await fetch('/api/draws', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parkrun_location_id: locationId,
+        draw_date: getRelevantSaturday(),
+        sponsor_name,
+        prize_label,
+        draw_time,
+        ...(sponsor_logo_url ? { sponsor_logo_url } : {}),
+        ...(prize_image_url ? { prize_image_url } : {})
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    resultEl.textContent = 'Saved for ' + getRelevantSaturday() + '.';
+    document.getElementById('sponsorLogoFile').value = '';
+    document.getElementById('prizeImageFile').value = '';
+    loadDrawSetup();
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
+  }
+}
+
+async function saveEntrants() {
+  const raw = document.getElementById('namesBox').value;
+  const names = raw.split('\n');
+  const draw_date = getRelevantSaturday();
+
+  const res = await fetch('/api/entrants', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ parkrun_location_id: locationId, draw_date, names })
+  });
+  const data = await res.json();
+  const resultEl = document.getElementById('result');
+  if (data.error) {
+    resultEl.textContent = 'Error: ' + data.error;
+  } else {
+    const starterNote = data.stats && data.stats.starters > data.saved
+      ? ` (${data.stats.starters} total starters, including unbarcoded/unknown finishers)`
+      : '';
+    resultEl.textContent = `Saved ${data.saved} names.${starterNote}`;
+    document.getElementById('namesBox').value = '';
+    loadEntrantsList();
+    renderDetectedStatsFromResponse(data.stats);
+  }
+}
+
+function renderDetectedStatsFromResponse(stats) {
+  const el = document.getElementById('statsDetected');
+  if (!stats) { el.style.display = 'none'; return; }
+  const lines = [];
+  lines.push(`<strong>${stats.starters}</strong> starters`);
+  if (stats.maleWinner) lines.push(`Male winner: <strong>${stats.maleWinner}</strong>`);
+  if (stats.femaleWinner) lines.push(`Female winner: <strong>${stats.femaleWinner}</strong>`);
+  if (stats.averageTime) lines.push(`Average time: <strong>${stats.averageTime}</strong>`);
+  if (stats.prizeLabel) lines.push(`Prize set to: <strong>${stats.prizeLabel}</strong>`);
+  el.innerHTML = 'Auto-detected from this paste:<br>' + lines.join(' \u00b7 ');
+  el.style.display = 'block';
+}
+
+function renderDetectedStats(draw) {
+  if (!draw || draw.starters == null) { document.getElementById('statsDetected').style.display = 'none'; return; }
+  renderDetectedStatsFromResponse({
+    starters: draw.starters,
+    maleWinner: draw.male_winner_name ? `${draw.male_winner_name} (${draw.male_winner_time || '?'})` : null,
+    femaleWinner: draw.female_winner_name ? `${draw.female_winner_name} (${draw.female_winner_time || '?'})` : null,
+    averageTime: draw.average_time,
+    prizeLabel: draw.prize_label
+  });
+}
+
+let entrantsListExpanded = false;
+let lastEntrants = [];
+
+async function loadEntrantsList() {
+  const res = await fetch('/api/entrants?location_id=' + locationId + '&draw_date=' + getRelevantSaturday());
+  lastEntrants = await res.json();
+  document.getElementById('entrantsSummary').textContent = lastEntrants.length
+    ? `${lastEntrants.length} name${lastEntrants.length === 1 ? '' : 's'} saved for this Saturday`
+    : 'No names saved yet.';
+  renderEntrantsList();
+}
+
+function renderEntrantsList() {
+  const el = document.getElementById('entrantsList');
+  const btn = document.getElementById('toggleEntrantsBtn');
+  if (!entrantsListExpanded) { el.style.display = 'none'; btn.textContent = 'Show list'; return; }
+  btn.textContent = 'Hide list';
+  el.style.display = 'block';
+  if (!lastEntrants.length) { el.textContent = 'No names saved yet.'; return; }
+  el.innerHTML = lastEntrants.map(e =>
+    `<div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #eee;">
+      <span>${e.finisher_name}</span>
+      <button onclick="deleteEntrant('${e.id}')" style="font-size:12px; padding:3px 8px;">Remove</button>
+    </div>`
+  ).join('');
+}
+
+function toggleEntrantsList() {
+  entrantsListExpanded = !entrantsListExpanded;
+  renderEntrantsList();
+}
+
+async function deleteEntrant(id) {
+  const res = await fetch('/api/entrants/' + id, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    alert('Failed to remove: ' + (data.error || res.status));
+    return;
+  }
+  loadEntrantsList();
+}
+
+async function clearAllEntrants() {
+  if (!confirm('Clear all pasted names for this Saturday? This cannot be undone.')) return;
+  const res = await fetch('/api/entrants?location_id=' + locationId + '&draw_date=' + getRelevantSaturday(), { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    alert('Failed to clear: ' + (data.error || res.status));
+    return;
+  }
+  loadEntrantsList();
+}
+
+async function loadHistory() {
+  const res = await fetch('/api/draws/history?location_id=' + locationId);
+  const draws = await res.json();
+  const el = document.getElementById('historyList');
+  if (!draws.length) { el.textContent = 'No past draws for this location yet.'; return; }
+  el.innerHTML = draws.map(d => {
+    const expired = d.claim_deadline && !d.claimed && new Date(d.claim_deadline) < new Date();
+    let claimStatus;
+    if (d.claimed) claimStatus = '<span style="color:green;">Claimed</span>';
+    else if (expired) claimStatus = '<span style="color:#E24B4A;">Claim window expired</span>';
+    else claimStatus = `<button onclick="markClaimed('${d.id}')">Mark claimed</button>`;
+    return `<div style="padding:8px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <span>${d.draw_date} — Winner: <strong>${d.weekly_entrants ? d.weekly_entrants.finisher_name : 'Unknown'}</strong>
+      — ${d.prize_label || ''} —
+      ${claimStatus}</span>
+      <button onclick="deleteDraw('${d.id}')" style="font-size:12px; padding:3px 8px; flex-shrink:0;">Delete</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteDraw(id) {
+  if (!confirm('Delete this past result? This cannot be undone.')) return;
+  await fetch('/api/draws/' + id, { method: 'DELETE' });
+  loadHistory();
+}
+
+async function markClaimed(drawId) {
+  await fetch('/api/draws/claim', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ draw_id: drawId, claimed: true })
+  });
+  loadHistory();
+}
+
+loadLocationName();
+loadDrawSetup();
+loadEntrantsList();
+loadHistory();
+</script>
+
+</body>
+</html>
