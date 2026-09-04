@@ -148,14 +148,11 @@ app.patch('/api/locations/:id', async (req, res) => {
 
 // --- Weekly entrants (paste-in) ---
 
-app.post('/api/entrants', async (req, res) => {
-  const { parkrun_location_id, draw_date, names } = req.body;
-  if (!parkrun_location_id || !draw_date || !Array.isArray(names)) {
-    return res.status(400).json({ error: 'parkrun_location_id, draw_date, and names[] are required' });
-  }
-
-  const rawLines = names.map(n => n.trim()).filter(Boolean);
-  if (rawLines.length === 0) return res.status(400).json({ error: 'no names provided' });
+// Shared by both the paste-in endpoint and the file-upload endpoint — takes raw text
+// lines (however they got there) and does the parsing, saving, and stats/prize logic.
+async function saveEntrantsFromLines(parkrun_location_id, draw_date, rawLinesInput) {
+  const rawLines = rawLinesInput.map(n => n.trim()).filter(Boolean);
+  if (rawLines.length === 0) return { status: 400, body: { error: 'no names provided' } };
 
   let allRecords, totalStarters;
   if (looksLikeParkrunBlock(rawLines)) {
@@ -177,7 +174,7 @@ app.post('/api/entrants', async (req, res) => {
     .from('weekly_entrants')
     .insert(rows)
     .select();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return { status: 500, body: { error: error.message } };
 
   // Work out stats from whatever gender/time info was in the pasted lines
   const maleRow = parsedRows.find(p => p.gender === 'M' && p.time);
@@ -220,17 +217,42 @@ app.post('/api/entrants', async (req, res) => {
 
   await supabase.from('draws').upsert(statsUpdate, { onConflict: 'parkrun_location_id,draw_date' });
 
-  res.json({
-    saved: data.length,
-    entrants: data,
-    stats: {
-      starters: totalStarters,
-      maleWinner: maleRow ? `${maleRow.name} (${maleRow.time})` : null,
-      femaleWinner: femaleRow ? `${femaleRow.name} (${femaleRow.time})` : null,
-      prizeLabel,
-      averageTime: avgSeconds ? secondsToTime(avgSeconds) : null
+  return {
+    status: 200,
+    body: {
+      saved: data.length,
+      entrants: data,
+      stats: {
+        starters: totalStarters,
+        maleWinner: maleRow ? `${maleRow.name} (${maleRow.time})` : null,
+        femaleWinner: femaleRow ? `${femaleRow.name} (${femaleRow.time})` : null,
+        prizeLabel,
+        averageTime: avgSeconds ? secondsToTime(avgSeconds) : null
+      }
     }
-  });
+  };
+}
+
+app.post('/api/entrants', async (req, res) => {
+  const { parkrun_location_id, draw_date, names } = req.body;
+  if (!parkrun_location_id || !draw_date || !Array.isArray(names)) {
+    return res.status(400).json({ error: 'parkrun_location_id, draw_date, and names[] are required' });
+  }
+  const result = await saveEntrantsFromLines(parkrun_location_id, draw_date, names);
+  res.status(result.status).json(result.body);
+});
+
+app.post('/api/entrants/upload', upload.single('file'), async (req, res) => {
+  const { parkrun_location_id, draw_date } = req.body;
+  if (!parkrun_location_id || !draw_date) {
+    return res.status(400).json({ error: 'parkrun_location_id and draw_date are required' });
+  }
+  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+  const text = req.file.buffer.toString('utf8');
+  const lines = text.split(/\r?\n/);
+  const result = await saveEntrantsFromLines(parkrun_location_id, draw_date, lines);
+  res.status(result.status).json(result.body);
 });
 
 app.get('/api/entrants', async (req, res) => {
@@ -327,6 +349,19 @@ app.delete('/api/entrants', async (req, res) => {
     .eq('parkrun_location_id', location_id)
     .eq('draw_date', draw_date);
   if (error) return res.status(500).json({ error: error.message });
+
+  // Wipe the stale auto-detected stats too — they came from the paste that just got cleared
+  await supabase
+    .from('draws')
+    .update({
+      starters: null, finishers: null,
+      male_winner_name: null, male_winner_time: null,
+      female_winner_name: null, female_winner_time: null,
+      average_time: null, prize_label: null
+    })
+    .eq('parkrun_location_id', location_id)
+    .eq('draw_date', draw_date);
+
   res.json({ cleared: true });
 });
 

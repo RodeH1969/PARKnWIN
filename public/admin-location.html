@@ -70,6 +70,11 @@
 <button onclick="saveEntrants()">Save</button>
 <div id="result" style="font-size:13px; margin-top:6px;"></div>
 
+<div class="hint" style="margin-top:14px;">Or upload a text file (.txt or .csv) with the same content — no need to paste it in by hand.</div>
+<input id="resultsFile" type="file" accept=".txt,.csv,text/plain,text/csv">
+<button onclick="uploadEntrantsFile()">Upload</button>
+<div id="uploadResult" style="font-size:13px; margin-top:6px;"></div>
+
 <div id="statsDetected" style="font-size:13px; margin-top:10px; padding:10px; background:#f4f4f2; border-radius:6px; display:none;"></div>
 
 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
@@ -203,6 +208,32 @@ async function saveDraw() {
   }
 }
 
+async function uploadEntrantsFile() {
+  const fileInput = document.getElementById('resultsFile');
+  const resultEl = document.getElementById('uploadResult');
+  if (!fileInput.files || !fileInput.files[0]) { resultEl.textContent = 'Choose a file first.'; return; }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('parkrun_location_id', locationId);
+  formData.append('draw_date', getRelevantSaturday());
+
+  resultEl.textContent = 'Uploading\u2026';
+  const res = await fetch('/api/entrants/upload', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.error) {
+    resultEl.textContent = 'Error: ' + data.error;
+  } else {
+    const starterNote = data.stats && data.stats.starters > data.saved
+      ? ` (${data.stats.starters} total starters, including unbarcoded/unknown finishers)`
+      : '';
+    resultEl.textContent = `Saved ${data.saved} names.${starterNote}`;
+    fileInput.value = '';
+    loadEntrantsList();
+    renderDetectedStatsFromResponse(data.stats);
+  }
+}
+
 async function saveEntrants() {
   const raw = document.getElementById('namesBox').value;
   const names = raw.split('\n');
@@ -302,6 +333,7 @@ async function clearAllEntrants() {
     alert('Failed to clear: ' + (data.error || res.status));
     return;
   }
+  document.getElementById('statsDetected').style.display = 'none';
   loadEntrantsList();
 }
 
