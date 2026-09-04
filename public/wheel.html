@@ -196,6 +196,7 @@ async function loadDraw() {
 
   document.getElementById('entryCount').textContent = names.length;
 
+  if (names.length > 0) awaitingResults = false;
   setupWaitingSlides(data.draw);
 
   if (data.draw.status !== 'drawn') {
@@ -218,6 +219,7 @@ async function loadDraw() {
 let waitingSlides = [];
 let waitingSlideIndex = 0;
 let waitingCycleStarted = false;
+let awaitingResults = false;
 
 function setupWaitingSlides(draw) {
   const mystery = { icon: '?', title: "Who's it gonna be?", sub: 'Winner revealed live \u2014 stay tuned' };
@@ -250,7 +252,7 @@ function showWaitingSlide(i) {
 }
 
 function cycleWaitingSlide() {
-  if (handledDraw || waitingSlides.length <= 1) return;
+  if (handledDraw || awaitingResults || waitingSlides.length <= 1) return;
   waitingSlideIndex = (waitingSlideIndex + 1) % waitingSlides.length;
   showWaitingSlide(waitingSlideIndex);
 }
@@ -265,10 +267,16 @@ function tickClock() {
     if (!spinTriggered) {
       if (names.length === 0) {
         // Draw time hit but results haven't been pasted in yet — keep waiting, don't give up silently
-        const sub = document.querySelector('#waitingContent .waiting-sub');
-        if (sub) sub.textContent = "Results being finalised \u2014 draw will run any moment";
+        if (!awaitingResults) {
+          awaitingResults = true;
+          const sub = document.querySelector('#waitingContent .waiting-sub');
+          const title = document.querySelector('#waitingContent .waiting-title');
+          if (title) title.textContent = 'Almost there\u2026';
+          if (sub) sub.textContent = 'Results being finalised \u2014 draw will run any moment';
+        }
         return;
       }
+      awaitingResults = false;
       spinTriggered = true;
       handledDraw = true; // this browser is about to run its own countdown+spin — stop polling from interfering
       startCountdownThenSpin();
