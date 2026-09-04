@@ -412,7 +412,13 @@ app.post('/api/draws/pick-winner', async (req, res) => {
 
   if (draw.status === 'drawn') {
     const { data: entrant } = await supabase.from('weekly_entrants').select('finisher_name').eq('id', draw.winner_entrant_id).maybeSingle();
-    return res.json({ alreadyDrawn: true, winnerName: entrant ? entrant.finisher_name : null });
+    if (entrant) {
+      return res.json({ alreadyDrawn: true, winnerName: entrant.finisher_name });
+    }
+    // The winning entrant was deleted after the draw ran (e.g. entrants got cleared) —
+    // rather than getting stuck forever pointing at nothing, reset and pick again below.
+    await supabase.from('draws').update({ status: 'pending', winner_entrant_id: null, claim_deadline: null }).eq('id', draw.id);
+    draw.status = 'pending';
   }
 
   const { data: entrants, error: entrantsError } = await supabase
