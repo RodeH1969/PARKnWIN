@@ -60,13 +60,22 @@ function parseResultLine(rawLine) {
 //   Male
 //   VM35-39
 //   20:53
-// A bare "Unknown" line means an unbarcoded finisher — no name to match against, but they
-// still count toward starters/finishers. This parser walks the block using the position-number
-// lines as record separators.
+// Some rows have fewer fields (no club, sometimes no gender/age-category at all — just
+// name and time). A bare "Unknown" line means an unbarcoded finisher — no name to match
+// against, but they still count toward starters/finishers. This parser walks the block
+// using the position-number lines as record separators. It also skips the file's header
+// block (parkrun name, date, event number, finisher/volunteer counts) so that noise never
+// gets mistaken for a real result row.
 function parseParkrunBlock(rawLines) {
   const lines = rawLines.map(l => l.trim()).filter(Boolean);
+
+  // Skip everything up to and including the "Position ... parkrunner ... Time" header
+  // row, if present — otherwise the finisher/volunteer counts above it get misread as data.
+  const headerIdx = lines.findIndex(l => /position/i.test(l) && /parkrunner/i.test(l));
+  const startIdx = headerIdx >= 0 ? headerIdx + 1 : 0;
+
   const records = [];
-  let i = 0;
+  let i = startIdx;
   while (i < lines.length) {
     if (/^\d+$/.test(lines[i])) {
       i++;
@@ -77,17 +86,21 @@ function parseParkrunBlock(rawLines) {
       }
       if (fields.length === 1 && fields[0].toLowerCase() === 'unknown') {
         records.push({ name: null, gender: null, time: null, timeSeconds: null, unknown: true });
-      } else if (fields.length >= 3) {
+      } else if (fields.length >= 2) {
         const name = fields[0];
-        const genderWord = fields[1];
-        const time = fields[fields.length - 1];
-        const gender = /^m/i.test(genderWord) ? 'M' : (/^f/i.test(genderWord) ? 'F' : null);
-        const validTime = /^\d{1,2}:\d{2}(?::\d{2})?$/.test(time);
+        const last = fields[fields.length - 1];
+        const validTime = /^\d{1,2}:\d{2}(?::\d{2})?$/.test(last);
+        // Gender only exists as its own field when there are 3+ fields (name, gender, ..., time)
+        let gender = null;
+        if (fields.length >= 3) {
+          const genderWord = fields[1];
+          gender = /^m/i.test(genderWord) ? 'M' : (/^f/i.test(genderWord) ? 'F' : null);
+        }
         records.push({
           name,
           gender,
-          time: validTime ? time : null,
-          timeSeconds: validTime ? timeToSeconds(time) : null,
+          time: validTime ? last : null,
+          timeSeconds: validTime ? timeToSeconds(last) : null,
           unknown: false
         });
       }
@@ -154,6 +167,16 @@ async function saveEntrantsFromLines(parkrun_location_id, draw_date, rawLinesInp
   const rawLines = rawLinesInput.map(n => n.trim()).filter(Boolean);
   if (rawLines.length === 0) return { status: 400, body: { error: 'no names provided' } };
 
+  // If the file includes a header like "9/5/26 | #522", pull the event number out of it
+  // automatically rather than making the admin type it in separately.
+  let detectedEventNumber = null;
+  const headerCutoff = rawLines.findIndex(l => /position/i.test(l) && /parkrunner/i.test(l));
+  const headerLines = headerCutoff >= 0 ? rawLines.slice(0, headerCutoff) : rawLines.slice(0, 5);
+  for (const l of headerLines) {
+    const m = l.match(/#\s*(\d+)/);
+    if (m) { detectedEventNumber = parseInt(m[1], 10); break; }
+  }
+
   let allRecords, totalStarters;
   if (looksLikeParkrunBlock(rawLines)) {
     allRecords = parseParkrunBlock(rawLines);
@@ -214,6 +237,7 @@ async function saveEntrantsFromLines(parkrun_location_id, draw_date, rawLinesInp
   if (maleRow) { statsUpdate.male_winner_name = maleRow.name; statsUpdate.male_winner_time = maleRow.time; }
   if (femaleRow) { statsUpdate.female_winner_name = femaleRow.name; statsUpdate.female_winner_time = femaleRow.time; }
   if (avgSeconds) { statsUpdate.average_time = secondsToTime(avgSeconds); }
+  if (detectedEventNumber != null) { statsUpdate.event_number = detectedEventNumber; }
 
   await supabase.from('draws').upsert(statsUpdate, { onConflict: 'parkrun_location_id,draw_date' });
 
@@ -227,7 +251,8 @@ async function saveEntrantsFromLines(parkrun_location_id, draw_date, rawLinesInp
         maleWinner: maleRow ? `${maleRow.name} (${maleRow.time})` : null,
         femaleWinner: femaleRow ? `${femaleRow.name} (${femaleRow.time})` : null,
         prizeLabel,
-        averageTime: avgSeconds ? secondsToTime(avgSeconds) : null
+        averageTime: avgSeconds ? secondsToTime(avgSeconds) : null,
+        eventNumber: detectedEventNumber
       }
     }
   };
@@ -372,7 +397,7 @@ app.post('/api/draws', async (req, res) => {
   const {
     parkrun_location_id, draw_date, sponsor_name, sponsor_logo_url, prize_label, prize_image_url, draw_time,
     starters, finishers, male_winner_name, male_winner_time, female_winner_name, female_winner_time,
-    average_time
+    average_time, event_number
   } = req.body;
   if (!parkrun_location_id || !draw_date) {
     return res.status(400).json({ error: 'parkrun_location_id and draw_date are required' });
@@ -383,7 +408,7 @@ app.post('/api/draws', async (req, res) => {
       {
         parkrun_location_id, draw_date, sponsor_name, sponsor_logo_url, prize_label, prize_image_url, draw_time,
         starters, finishers, male_winner_name, male_winner_time, female_winner_name, female_winner_time,
-        average_time
+        average_time, event_number
       },
       { onConflict: 'parkrun_location_id,draw_date' }
     )

@@ -225,6 +225,10 @@ function setupWaitingSlides(draw) {
   const mystery = { icon: '?', title: "Who's it gonna be?", sub: 'Winner revealed live \u2014 stay tuned' };
   const slides = [mystery];
 
+  if (draw.event_number != null) {
+    const dateLabel = new Date(draw.draw_date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    slides.push({ icon: '\ud83c\udff7\ufe0f', title: 'parkrun #' + draw.event_number, sub: dateLabel });
+  }
   if (draw.starters != null) slides.push({ icon: '\ud83c\udfc3', title: draw.starters + ' starters today', sub: draw.finishers != null ? draw.finishers + ' crossed the line' : '' });
   if (draw.male_winner_name) slides.push({ icon: '\ud83e\udd47', title: draw.male_winner_name, sub: 'Male winner' + (draw.male_winner_time ? ' \u2014 ' + draw.male_winner_time : '') });
   if (draw.female_winner_name) slides.push({ icon: '\ud83e\udd47', title: draw.female_winner_name, sub: 'Female winner' + (draw.female_winner_time ? ' \u2014 ' + draw.female_winner_time : '') });

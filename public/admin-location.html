@@ -54,6 +54,10 @@
 <label>Draw time</label>
 <input id="drawTime" type="datetime-local">
 
+<label>Parkrun event number</label>
+<div class="hint">The event number for this Saturday's run, e.g. Ashgrove parkrun #522.</div>
+<input id="eventNumber" type="number" placeholder="e.g. 522">
+
 <button onclick="saveDraw()">Save draw setup</button>
 <button onclick="resetDraw()" style="background:#eee; margin-left:8px;">Reset this week's draw</button>
 <div id="drawResult" style="font-size:13px; margin-top:6px;"></div>
@@ -128,6 +132,7 @@ async function loadDrawSetup() {
 
   document.getElementById('sponsorName').value = draw ? (draw.sponsor_name || '') : '';
   document.getElementById('prizeLabel').value = draw ? (draw.prize_label || '') : '';
+  document.getElementById('eventNumber').value = draw && draw.event_number != null ? draw.event_number : '';
   renderDetectedStats(draw);
 
   if (draw && draw.draw_time) {
@@ -193,6 +198,7 @@ async function saveDraw() {
         sponsor_name,
         prize_label,
         draw_time,
+        event_number: numOrNull('eventNumber'),
         ...(sponsor_logo_url ? { sponsor_logo_url } : {}),
         ...(prize_image_url ? { prize_image_url } : {})
       })
@@ -263,6 +269,10 @@ function renderDetectedStatsFromResponse(stats) {
   const el = document.getElementById('statsDetected');
   if (!stats) { el.style.display = 'none'; return; }
   const lines = [];
+  if (stats.eventNumber != null) {
+    lines.push(`Event: <strong>#${stats.eventNumber}</strong> (auto-detected)`);
+    document.getElementById('eventNumber').value = stats.eventNumber;
+  }
   lines.push(`<strong>${stats.starters}</strong> starters`);
   if (stats.maleWinner) lines.push(`Male winner: <strong>${stats.maleWinner}</strong>`);
   if (stats.femaleWinner) lines.push(`Female winner: <strong>${stats.femaleWinner}</strong>`);
