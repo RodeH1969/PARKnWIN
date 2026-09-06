@@ -30,8 +30,6 @@
 <div class="hint">Set based on typical turnout at this parkrun. If named finishers (not counting "Unknown" unbarcoded runners) go over this number, the prize jumps to $100 that week — overriding the $50 speed tier.</div>
 <label>Big turnout threshold</label>
 <input id="turnoutThreshold" type="number" placeholder="e.g. 220">
-<button onclick="saveTurnoutThreshold()">Save</button>
-<div id="turnoutResult" style="font-size:13px; margin-top:6px;"></div>
 </details>
 
 <details open>
@@ -58,9 +56,7 @@
 <div class="hint">The event number for this Saturday's run, e.g. Ashgrove parkrun #522.</div>
 <input id="eventNumber" type="number" placeholder="e.g. 522">
 
-<button onclick="saveDraw()">Save draw setup</button>
-<button onclick="resetDraw()" style="background:#eee; margin-left:8px;">Reset this week's draw</button>
-<div id="drawResult" style="font-size:13px; margin-top:6px;"></div>
+<button onclick="resetDraw()" style="background:#eee;">Reset this week's draw</button>
 </details>
 
 <details open>
@@ -71,13 +67,9 @@
 <textarea id="namesBox" placeholder="1 Jack Thompson SM30-34 16:42
 2 Sarah Chen SW25-29 18:55
 3 Dave Smith VM45-49 19:10"></textarea>
-<button onclick="saveEntrants()">Save</button>
-<div id="result" style="font-size:13px; margin-top:6px;"></div>
 
 <div class="hint" style="margin-top:14px;">Or upload a text file (.txt or .csv) with the same content — no need to paste it in by hand.</div>
 <input id="resultsFile" type="file" accept=".txt,.csv,text/plain,text/csv">
-<button onclick="uploadEntrantsFile()">Upload</button>
-<div id="uploadResult" style="font-size:13px; margin-top:6px;"></div>
 
 <div id="statsDetected" style="font-size:13px; margin-top:10px; padding:10px; background:#f4f4f2; border-radius:6px; display:none;"></div>
 
@@ -96,6 +88,9 @@
 <div id="historyList" style="font-size:13px; margin-top:10px;"></div>
 </details>
 
+<button onclick="saveEverything()" style="width:100%; font-size:16px; padding:14px; margin-top:20px; background:#D85A30; color:#fff; border:none; border-radius:8px;">Save</button>
+<div id="saveResult" style="font-size:13px; margin-top:8px; text-align:center;"></div>
+
 <script src="dates.js"></script>
 <script>
 const params = new URLSearchParams(window.location.search);
@@ -109,20 +104,15 @@ async function loadLocationName() {
   document.getElementById('turnoutThreshold').value = loc && loc.big_turnout_threshold != null ? loc.big_turnout_threshold : '';
 }
 
-async function saveTurnoutThreshold() {
+async function saveTurnoutThresholdPart() {
   const value = document.getElementById('turnoutThreshold').value;
-  const resultEl = document.getElementById('turnoutResult');
   const res = await fetch('/api/locations/' + locationId, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ big_turnout_threshold: value })
   });
   const data = await res.json();
-  if (data.error) {
-    resultEl.textContent = 'Error: ' + data.error;
-  } else {
-    resultEl.textContent = 'Saved.';
-  }
+  if (data.error) throw new Error(data.error);
 }
 
 async function loadDrawSetup() {
@@ -159,13 +149,13 @@ async function uploadFile(inputEl) {
 
 async function resetDraw() {
   if (!confirm("Clear this week's winner and let the draw run again? This can't be undone.")) return;
-  const resultEl = document.getElementById('drawResult');
   const res = await fetch('/api/draws/reset', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ parkrun_location_id: locationId, draw_date: getRelevantSaturday() })
   });
   const data = await res.json();
+  const resultEl = document.getElementById('saveResult');
   if (data.error) {
     resultEl.textContent = 'Error: ' + data.error;
   } else {
@@ -174,74 +164,56 @@ async function resetDraw() {
   }
 }
 
-async function saveDraw() {
-  const resultEl = document.getElementById('drawResult');
-  resultEl.textContent = 'Saving...';
-  try {
-    const sponsor_name = document.getElementById('sponsorName').value;
-    const prize_label = document.getElementById('prizeLabel').value;
-    const drawTimeLocal = document.getElementById('drawTime').value;
-    const draw_time = drawTimeLocal ? new Date(drawTimeLocal).toISOString() : null;
+async function saveDrawPart() {
+  const sponsor_name = document.getElementById('sponsorName').value;
+  const prize_label = document.getElementById('prizeLabel').value;
+  const drawTimeLocal = document.getElementById('drawTime').value;
+  const draw_time = drawTimeLocal ? new Date(drawTimeLocal).toISOString() : null;
 
-    const numOrNull = id => { const v = document.getElementById(id).value; return v === '' ? null : Number(v); };
-    const strOrNull = id => { const v = document.getElementById(id).value; return v === '' ? null : v; };
+  const numOrNull = id => { const v = document.getElementById(id).value; return v === '' ? null : Number(v); };
 
-    const sponsor_logo_url = await uploadFile(document.getElementById('sponsorLogoFile'));
-    const prize_image_url = await uploadFile(document.getElementById('prizeImageFile'));
+  const sponsor_logo_url = await uploadFile(document.getElementById('sponsorLogoFile'));
+  const prize_image_url = await uploadFile(document.getElementById('prizeImageFile'));
 
-    const res = await fetch('/api/draws', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        parkrun_location_id: locationId,
-        draw_date: getRelevantSaturday(),
-        sponsor_name,
-        prize_label,
-        draw_time,
-        event_number: numOrNull('eventNumber'),
-        ...(sponsor_logo_url ? { sponsor_logo_url } : {}),
-        ...(prize_image_url ? { prize_image_url } : {})
-      })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    resultEl.textContent = 'Saved for ' + getRelevantSaturday() + '.';
-    document.getElementById('sponsorLogoFile').value = '';
-    document.getElementById('prizeImageFile').value = '';
-    loadDrawSetup();
-  } catch (err) {
-    resultEl.textContent = 'Error: ' + err.message;
-  }
+  const res = await fetch('/api/draws', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      parkrun_location_id: locationId,
+      draw_date: getRelevantSaturday(),
+      sponsor_name,
+      prize_label,
+      draw_time,
+      event_number: numOrNull('eventNumber'),
+      ...(sponsor_logo_url ? { sponsor_logo_url } : {}),
+      ...(prize_image_url ? { prize_image_url } : {})
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  document.getElementById('sponsorLogoFile').value = '';
+  document.getElementById('prizeImageFile').value = '';
 }
 
-async function uploadEntrantsFile() {
+async function uploadEntrantsFilePart() {
   const fileInput = document.getElementById('resultsFile');
-  const resultEl = document.getElementById('uploadResult');
-  if (!fileInput.files || !fileInput.files[0]) { resultEl.textContent = 'Choose a file first.'; return; }
+  if (!fileInput.files || !fileInput.files[0]) return null;
 
   const formData = new FormData();
   formData.append('file', fileInput.files[0]);
   formData.append('parkrun_location_id', locationId);
   formData.append('draw_date', getRelevantSaturday());
 
-  resultEl.textContent = 'Uploading\u2026';
   const res = await fetch('/api/entrants/upload', { method: 'POST', body: formData });
   const data = await res.json();
-  if (data.error) {
-    resultEl.textContent = 'Error: ' + data.error;
-  } else {
-    const starterNote = data.stats && data.stats.starters > data.saved
-      ? ` (${data.stats.starters} total starters, including unbarcoded/unknown finishers)`
-      : '';
-    resultEl.textContent = `Saved ${data.saved} names.${starterNote}`;
-    fileInput.value = '';
-    loadEntrantsList();
-    renderDetectedStatsFromResponse(data.stats);
-  }
+  if (data.error) throw new Error(data.error);
+  fileInput.value = '';
+  return data;
 }
 
-async function saveEntrants() {
+async function saveEntrantsPart() {
   const raw = document.getElementById('namesBox').value;
+  if (!raw.trim()) return null;
   const names = raw.split('\n');
   const draw_date = getRelevantSaturday();
 
@@ -251,17 +223,36 @@ async function saveEntrants() {
     body: JSON.stringify({ parkrun_location_id: locationId, draw_date, names })
   });
   const data = await res.json();
-  const resultEl = document.getElementById('result');
-  if (data.error) {
-    resultEl.textContent = 'Error: ' + data.error;
-  } else {
-    const starterNote = data.stats && data.stats.starters > data.saved
-      ? ` (${data.stats.starters} total starters, including unbarcoded/unknown finishers)`
-      : '';
-    resultEl.textContent = `Saved ${data.saved} names.${starterNote}`;
-    document.getElementById('namesBox').value = '';
+  if (data.error) throw new Error(data.error);
+  document.getElementById('namesBox').value = '';
+  return data;
+}
+
+async function saveEverything() {
+  const resultEl = document.getElementById('saveResult');
+  resultEl.textContent = 'Saving\u2026';
+  try {
+    await saveTurnoutThresholdPart();
+    await saveDrawPart();
+
+    // Only one of paste-box or file-upload will have content — whichever it is, save it
+    let entrantsResult = await uploadEntrantsFilePart();
+    if (!entrantsResult) entrantsResult = await saveEntrantsPart();
+
+    const parts = ['Saved.'];
+    if (entrantsResult) {
+      const starterNote = entrantsResult.stats && entrantsResult.stats.starters > entrantsResult.saved
+        ? ` (${entrantsResult.stats.starters} total starters, including unbarcoded/unknown finishers)`
+        : '';
+      parts.push(`${entrantsResult.saved} names saved.${starterNote}`);
+      renderDetectedStatsFromResponse(entrantsResult.stats);
+    }
+
+    resultEl.textContent = parts.join(' ');
+    loadDrawSetup();
     loadEntrantsList();
-    renderDetectedStatsFromResponse(data.stats);
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + err.message;
   }
 }
 

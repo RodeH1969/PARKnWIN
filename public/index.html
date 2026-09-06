@@ -53,10 +53,16 @@
 
   /* --- Location carousel --- */
   .carousel-heading { font-size: 15px; font-weight: 700; margin: 24px 0 8px; }
+  .prize-explainer { background: #f4f4f2; border-radius: 12px; padding: 14px 16px; margin-top: 16px; }
+  .prize-explainer-title { font-size: 13px; font-weight: 700; color: #222; margin-bottom: 8px; }
+  .prize-explainer-row { display: flex; align-items: baseline; gap: 10px; font-size: 13px; color: #555; margin-top: 6px; }
+  .prize-explainer-amount { font-weight: 800; color: #D85A30; font-size: 15px; flex-shrink: 0; min-width: 46px; }
   .carousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; justify-content: center; }
   .carousel::-webkit-scrollbar { display: none; }
   .loc-card { flex: 0 0 78%; scroll-snap-align: start; background: #2C2C2A; border-radius: 14px; overflow: hidden; border: 1px solid #444; }
-  .loc-card-img { width: 100%; height: 100px; object-fit: cover; display: block; background: #1a1a1a; }
+  .loc-card-prize-badge { width: 100%; height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(160deg, #2C2C2A, #1a1a1a); }
+  .loc-card-prize-amount { font-size: 30px; font-weight: 800; color: #FAC775; }
+  .loc-card-prize-sub { font-size: 11px; color: #D3D1C7; margin-top: 2px; }
   .loc-card-body { padding: 12px 14px; }
   .loc-card-name { color: #fff; font-weight: 700; font-size: 15px; }
   .loc-card-sponsor { color: #D3D1C7; font-size: 12px; margin-top: 2px; }
@@ -118,6 +124,13 @@
 
   <div class="carousel-heading">This week, across Brisbane</div>
   <div class="carousel" id="carousel"></div>
+
+  <div class="prize-explainer">
+    <div class="prize-explainer-title">How the prize grows</div>
+    <div class="prize-explainer-row"><span class="prize-explainer-amount">$20</span> Standard weekly prize</div>
+    <div class="prize-explainer-row"><span class="prize-explainer-amount">$50</span> If the male winner breaks 17:30, the female winner breaks 19:30, or the average finishing time is under 30 minutes</div>
+    <div class="prize-explainer-row"><span class="prize-explainer-amount">$100</span> If that parkrun's turnout beats its usual crowd size</div>
+  </div>
 
   <select id="locationSelect" style="margin-top:20px;"></select>
   <a class="btn btn-primary" id="wheelLink" href="#">Watch this week's wheel</a>
@@ -231,12 +244,15 @@ function buildCarousel() {
     return;
   }
   el.innerHTML = withData.map(s => {
-    const img = s.prize_image_url
-      ? `<img class="loc-card-img" src="${s.prize_image_url}">`
-      : `<div class="loc-card-img" style="display:flex;align-items:center;justify-content:center;color:#FAC775;font-size:24px;">?</div>`;
+    const amountMatch = s.prize_label ? s.prize_label.match(/\$\d+/) : null;
+    const amount = amountMatch ? amountMatch[0] : '?';
+    const badge = `<div class="loc-card-prize-badge">
+      <div class="loc-card-prize-amount">${amount}</div>
+      <div class="loc-card-prize-sub">Woolies Gift Card</div>
+    </div>`;
     const timeLabel = s.status === 'drawn' ? 'Drawn' : (s.draw_time ? new Date(s.draw_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBC');
     return `<div class="loc-card">
-      ${img}
+      ${badge}
       <div class="loc-card-body">
         <div class="loc-card-name">${s.location_name}</div>
         <div class="loc-card-sponsor">${s.prize_label || 'Prize TBC'}</div>
