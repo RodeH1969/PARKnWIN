@@ -93,8 +93,7 @@
   </div>
 
   <div class="live-countdown" id="liveCountdown" style="display:none;">
-    <div class="lc-label">NEXT DRAW</div>
-    <div class="lc-location" id="lcLocation"></div>
+    <div class="lc-label" id="lcLabel">PARKRUNS ARE DRAWN IN</div>
     <div class="lc-time" id="lcTime">--:--:--</div>
   </div>
 
@@ -160,7 +159,7 @@ async function loadSummary() {
 
 function buildTicker() {
   const track = document.getElementById('tickerTrack');
-  const withData = summary.filter(s => s.sponsor_name || s.runners > 0);
+  const withData = summary.filter(s => s.prize_label || s.runners > 0);
 
   const locationCount = allLocations.length;
   const evergreen = [
@@ -172,9 +171,9 @@ function buildTicker() {
 
   const dataItems = withData.map(s => {
     if (s.status === 'drawn') return `\ud83c\udfc6 ${s.location_name}: drawn \u2014 check the wheel page for the winner`;
-    if (s.runners > 0 && s.sponsor_name) return `\ud83c\udfc3 ${s.location_name}: ${s.runners} runners \u00b7 ${s.prize_label || 'prize up for grabs'} from ${s.sponsor_name}`;
+    if (s.runners > 0 && s.prize_label) return `\ud83c\udfc3 ${s.location_name}: ${s.runners} runners \u00b7 ${s.prize_label} up for grabs`;
     if (s.runners > 0) return `\ud83c\udfc3 ${s.location_name}: ${s.runners} runners so far this week`;
-    return `${s.location_name}: ${s.prize_label || "today's prize"} sponsored by ${s.sponsor_name}`;
+    return `${s.location_name}: ${s.prize_label || "this week's prize"} up for grabs`;
   });
 
   const items = [...dataItems, ...evergreen];
@@ -203,8 +202,11 @@ function buildCountdown() {
   const box = document.getElementById('liveCountdown');
   if (upcoming.length === 0) { box.style.display = 'none'; return; }
   box.style.display = 'block';
-  document.getElementById('lcLocation').textContent = upcoming[0].location_name + ' parkrun';
-  box.dataset.time = new Date(upcoming[0].draw_time).getTime();
+
+  const soonestTime = new Date(upcoming[0].draw_time).getTime();
+  const count = upcoming.filter(s => new Date(s.draw_time).getTime() === soonestTime).length;
+  document.getElementById('lcLabel').textContent = `${count} parkrun${count === 1 ? '' : 's'} ${count === 1 ? 'is' : 'are'} drawn in`;
+  box.dataset.time = soonestTime;
 }
 
 function tickLiveCountdown() {
@@ -222,20 +224,22 @@ function tickLiveCountdown() {
 function buildCarousel() {
   const el = document.getElementById('carousel');
   const heading = document.querySelector('.carousel-heading');
-  const withSponsor = summary.filter(s => s.sponsor_name);
+  const withData = summary.filter(s => s.prize_label || s.runners > 0);
   heading.style.display = '';
-  if (withSponsor.length === 0) {
+  if (withData.length === 0) {
     el.innerHTML = '<div style="font-size:13px; color:#888; padding:8px 0;">Nothing set up for this Saturday yet \u2014 check back closer to draw day.</div>';
     return;
   }
-  el.innerHTML = withSponsor.map(s => {
-    const img = s.sponsor_logo_url ? `<img class="loc-card-img" src="${s.sponsor_logo_url}">` : `<div class="loc-card-img" style="display:flex;align-items:center;justify-content:center;color:#FAC775;font-size:24px;">?</div>`;
+  el.innerHTML = withData.map(s => {
+    const img = s.prize_image_url
+      ? `<img class="loc-card-img" src="${s.prize_image_url}">`
+      : `<div class="loc-card-img" style="display:flex;align-items:center;justify-content:center;color:#FAC775;font-size:24px;">?</div>`;
     const timeLabel = s.status === 'drawn' ? 'Drawn' : (s.draw_time ? new Date(s.draw_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBC');
     return `<div class="loc-card">
       ${img}
       <div class="loc-card-body">
         <div class="loc-card-name">${s.location_name}</div>
-        <div class="loc-card-sponsor">${s.sponsor_name}${s.prize_label ? ' \u2014 ' + s.prize_label : ''}</div>
+        <div class="loc-card-sponsor">${s.prize_label || 'Prize TBC'}</div>
         <div class="loc-card-row">
           <span class="loc-card-runners">${s.runners} runners</span>
           <span class="loc-card-time">${timeLabel}</span>

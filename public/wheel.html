@@ -54,10 +54,11 @@
 <div class="location" id="locationName">Loading...</div>
 
 <div class="sponsor-banner">
-  <div class="sponsor-eyebrow">TODAY'S SPONSOR</div>
+  <div class="sponsor-eyebrow">THIS WEEK'S SPONSOR</div>
   <div class="sponsor-logo" id="sponsorLogo" style="display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.08); font-size:32px; color:#FAC775;">?</div>
   <div class="sponsor-name" id="sponsorName">TBC</div>
   <div class="sponsor-prize" id="sponsorPrize"></div>
+  <img id="prizeImage" src="" alt="" style="display:none; max-width:140px; margin:10px auto 0; border-radius:8px;">
 </div>
 
 <div id="soundBanner" onclick="unlockSound()" style="text-align:center; background:#FAC775; color:#2C2C2A; font-weight:700; font-size:13px; padding:8px; border-radius:8px; margin-bottom:10px; cursor:pointer;">
@@ -185,6 +186,13 @@ async function loadDraw() {
   if (data.draw.sponsor_logo_url) {
     document.getElementById('sponsorLogo').innerHTML = '<img src="' + data.draw.sponsor_logo_url + '">';
   }
+  const prizeImg = document.getElementById('prizeImage');
+  if (data.draw.prize_image_url) {
+    prizeImg.src = data.draw.prize_image_url;
+    prizeImg.style.display = 'block';
+  } else {
+    prizeImg.style.display = 'none';
+  }
   drawTimeMs = data.draw.draw_time ? new Date(data.draw.draw_time).getTime() : null;
 
   const seenNames = {};
@@ -229,10 +237,10 @@ function setupWaitingSlides(draw) {
     const dateLabel = new Date(draw.draw_date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
     slides.push({ icon: '\ud83c\udff7\ufe0f', title: 'parkrun #' + draw.event_number, sub: dateLabel });
   }
-  if (draw.starters != null) slides.push({ icon: '\ud83c\udfc3', title: draw.starters + ' starters today', sub: draw.finishers != null ? draw.finishers + ' crossed the line' : '' });
+  if (draw.starters != null) slides.push({ icon: '\ud83c\udfc3', title: draw.starters + ' starters', sub: draw.finishers != null ? draw.finishers + ' crossed the line' : '' });
   if (draw.male_winner_name) slides.push({ icon: '\ud83e\udd47', title: draw.male_winner_name, sub: 'Male winner' + (draw.male_winner_time ? ' \u2014 ' + draw.male_winner_time : '') });
   if (draw.female_winner_name) slides.push({ icon: '\ud83e\udd47', title: draw.female_winner_name, sub: 'Female winner' + (draw.female_winner_time ? ' \u2014 ' + draw.female_winner_time : '') });
-  if (draw.average_time) slides.push({ icon: '\u23f1\ufe0f', title: draw.average_time, sub: "Today's average time" });
+  if (draw.average_time) slides.push({ icon: '\u23f1\ufe0f', title: draw.average_time, sub: 'Average finishing time' });
 
   waitingSlides = slides;
   if (!waitingCycleStarted) {
