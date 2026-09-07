@@ -13,11 +13,19 @@
   button { margin-top: 10px; padding: 10px 18px; font-size: 14px; cursor: pointer; }
   .location-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
   .location-row a { text-decoration: none; color: #D85A30; font-weight: 500; font-size: 14px; }
+  #currentPrizeImgPreview { max-width: 160px; margin-top: 10px; display: none; border-radius: 8px; }
 </style>
 </head>
 <body>
 
 <h1>PARKnSPIN Admin</h1>
+
+<h2>Prize image</h2>
+<div class="hint">One image, shown on the home page for every prize amount. Not per-location — this is the single consistent graphic used site-wide.</div>
+<input id="prizeImageFile" type="file" accept="image/*">
+<button onclick="savePrizeImage()">Save</button>
+<div id="prizeImageResult" style="font-size:13px; margin-top:6px;"></div>
+<img id="currentPrizeImgPreview">
 
 <h2>Locations</h2>
 <div class="hint">Paste parkrun names, one per line. Nothing else needed.</div>
@@ -32,9 +40,6 @@ Chermside"></textarea>
 <h2>Manage a location</h2>
 <div class="hint">Each parkrun has its own page — sponsor, prize, draw time, and finisher list all live there.</div>
 <div id="locationsList"></div>
-
-<h2>Recent registrations (all locations)</h2>
-<div id="recentRegs" style="font-size:13px;"></div>
 
 <script>
 async function loadLocations() {
@@ -69,18 +74,45 @@ async function addLocationsBulk() {
   }
 }
 
-async function loadRecentRegs() {
-  const res = await fetch('/api/registrations/recent');
-  const regs = await res.json();
-  const el = document.getElementById('recentRegs');
-  if (!regs.length) { el.textContent = 'No registrations yet.'; return; }
-  el.innerHTML = regs.map(r =>
-    `<div>${r.name} \u2014 ${r.mobile} \u2014 ${r.parkrun_locations ? r.parkrun_locations.name : '?'} \u2014 ${new Date(r.created_at).toLocaleString()}</div>`
-  ).join('');
+async function loadSettings() {
+  const res = await fetch('/api/settings');
+  const data = await res.json();
+  const preview = document.getElementById('currentPrizeImgPreview');
+  if (data.default_prize_image_url) {
+    preview.src = data.default_prize_image_url;
+    preview.style.display = 'block';
+  }
+}
+
+async function savePrizeImage() {
+  const fileInput = document.getElementById('prizeImageFile');
+  const resultEl = document.getElementById('prizeImageResult');
+  if (!fileInput.files || !fileInput.files[0]) { resultEl.textContent = 'Choose a file first.'; return; }
+
+  resultEl.textContent = 'Uploading\u2026';
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+  const uploadData = await uploadRes.json();
+  if (uploadData.error) { resultEl.textContent = 'Error: ' + uploadData.error; return; }
+
+  const res = await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ default_prize_image_url: uploadData.url })
+  });
+  const data = await res.json();
+  if (data.error) {
+    resultEl.textContent = 'Error: ' + data.error;
+  } else {
+    resultEl.textContent = 'Saved.';
+    fileInput.value = '';
+    loadSettings();
+  }
 }
 
 loadLocations();
-loadRecentRegs();
+loadSettings();
 </script>
 
 </body>

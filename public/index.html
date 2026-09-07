@@ -103,6 +103,10 @@
     <div class="lc-time" id="lcTime">--:--:--</div>
   </div>
 
+  <div style="text-align:center; margin:18px 0;">
+    <img id="prizeImage" src="prize.png" alt="Prize" style="max-width:200px; width:100%; border-radius:12px;">
+  </div>
+
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
@@ -168,6 +172,14 @@ async function loadSummary() {
   buildTicker();
   buildCountdown();
   buildCarousel();
+}
+
+async function loadSiteSettings() {
+  const res = await fetch('/api/settings');
+  const data = await res.json();
+  if (data.default_prize_image_url) {
+    document.getElementById('prizeImage').src = data.default_prize_image_url;
+  }
 }
 
 function buildTicker() {
@@ -288,6 +300,7 @@ function initScrollReveal() {
 initScrollReveal();
 loadLocations();
 loadSummary();
+loadSiteSettings();
 setInterval(tickLiveCountdown, 1000);
 setInterval(loadSummary, 30000);
 </script>
